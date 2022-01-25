@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "geckoleech"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pycoingecko = "^2.2.0"
+pyjsonq = "^1.0.2"
+duckdb = "^0.3.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2"
+pytest-mock = "^3.6.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
