@@ -29,24 +29,25 @@ def prep_expand():
         (("date2", 1), {"local": False, "page": 10}),
         (("date2", 2), {"local": False, "page": 10}),
     ]
-    return args, kwargs, expected
+    return (args, kwargs), expected
 
 
 def test_expand(prep_expand):
-    args, kwargs, expected = prep_expand
+    args_kwargs, expected = prep_expand
     # noinspection SpellCheckingInspection
-    actuals = utils.expand(args, kwargs)
+    actuals = utils.expand(args_kwargs)
     assert len(actuals) == len(expected)
     assert all([actual in expected for actual in actuals])
 
 
-@pytest.mark.parametrize("args, kwargs, expected", [
-    ([{0, 1}], None, [(0,), (1,)]),
-    ([{0, 1}, {2, 3}], {}, [(0, 2), (0, 3), (1, 2), (1, 3)]),
-    ([{0, 1}], {"id": 1, "p": 1}, [((0,), {"id": 1, "p": 1}), ((1,), {"id": 1, "p": 1})])
+@pytest.mark.parametrize("args_kwargs, expected", [
+    (([1, 2, 3],), [(1, 2, 3)]),
+    (([{0, 1}],), [(0,), (1,)]),
+    (([{0, 1}, {2, 3}], {}), [(0, 2), (0, 3), (1, 2), (1, 3)]),
+    (([{0, 1}], {"id": 1, "p": 1}), [((0,), {"id": 1, "p": 1}), ((1,), {"id": 1, "p": 1})])
 ])
-def test_expand_edges(args, kwargs, expected):
+def test_expand_edges(args_kwargs, expected):
     # noinspection SpellCheckingInspection
-    actuals = utils.expand(args, kwargs)
+    actuals = utils.expand(args_kwargs)
     assert len(actuals) == len(expected)
     assert all([actual in expected for actual in actuals])

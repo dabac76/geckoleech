@@ -17,7 +17,7 @@ class APIReq:
     _leeches: ClassVar[List["APIReq"]] = []
     name: str
     req: Callable
-    params: tuple[List[set], Optional[dict]]
+    params: tuple[List[Optional[set]], Optional[dict]]
     json_query: Callable[[JsonQ], Iterator[List]]
     sql_query: str
 
@@ -34,7 +34,7 @@ class APIReq:
 
 def _task(req: APIReq):
     sleep(random.choice([n/2 for n in range(1, 20)]))
-    for args_kwargs in expand(req.params[0], req.params[1]):
+    for args_kwargs in expand(req.params):
         try:
             resp = req.req(*args_kwargs[0], **args_kwargs[1])
         except Exception as e:
@@ -50,6 +50,7 @@ def _task(req: APIReq):
 # hardcoded 5)
 # Pagination. Pagination handler is a paid feature in CoinGeckoAPI pro.
 # TODO: Implement cli: --db-status and --filter-request commands
+# TODO: --dry-run to validate APIReq call parameters
 def leech():
     with concurrent.futures.ThreadPoolExecutor() as exe:
         futures = {

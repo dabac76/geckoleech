@@ -1,6 +1,5 @@
 import datetime as dt
 from itertools import product
-import logging
 import duckdb
 
 
@@ -31,25 +30,44 @@ def dates_cg_format(start, end=None):
             for dx in range((end - start).days + 1)}
 
 
-def expand(args, kwargs=None):
-    if not kwargs:
-        return list(product(*args))
-    combs = None
+def expand(args_kwargs):
+    # Validate input is in ([], {}) form
+    if type(args_kwargs[0]) is not list:
+        raise ValueError("1st element of params tuple has to be list")
+    args = args_kwargs[0]
     try:
-        # Expand all combinations of kwargs
+        kwargs = args_kwargs[1]
+    except IndexError:
+        kwargs = {}
+    else:
+        if type(kwargs) is not dict:
+            raise ValueError("2nd element of params tuple has to be dict")
+    # Expand all combinations of given positional arguments
+    combs = [arg for arg in args if type(arg) is set]
+    scalars = tuple(arg for arg in args if type(arg) is not set)
+    args_expanded = [scalars + elem for elem in product(*combs)]
+    if not kwargs:
+        return args_expanded
+    # Expand all combinations of given keyword arguments
+    # (Only keys having sets associated to them will expand to all combinations)
+    kwargs_expanded = None
+    try:
         keys, sets = zip(*[(k, v) for k, v in kwargs.items() if type(v) is set])
     except ValueError:
-        combs = [kwargs]
+        kwargs_expanded = [kwargs]
     else:
+        # Is there ordering guarantee from product? It says it guarantees
+        # "lexicographic" ordering. If meant "lexicon" is the order of inputs
+        # given to product, then it will preserve the position
+        # inside resulting tuples.
         combs = [item for item in product(*sets)]
-        # Expand keys with set values to all combinations of the value of each
         combs = [{keys[i]: vals[i] for i in range(len(keys))} for vals in combs]
         # Concatenate with the rest of items having atomic values
         scalars = {k: v for k, v in kwargs.items() if type(v) not in (list, tuple, set)}
-        combs = [{**d, **scalars} for d in combs]
+        kwargs_expanded = [{**d, **scalars} for d in combs]
     finally:
-        # Add to that all combinations of args
-        return list(product(product(*args), combs))
+        # Combine with expanded positional args
+        return list(product(args_expanded, kwargs_expanded))
 
 
 def save2db(query, gen):
