@@ -11,7 +11,7 @@ class DuckDB:
     conn = duckdb.connect(database=DB_PATH, read_only=False)
 
     def __init__(self):
-        self.cursor = self.conn.cursor()
+        self.cursor = DuckDB.conn.cursor()
 
     def __enter__(self):
         return self.cursor
@@ -31,8 +31,10 @@ def dates_cg_format(start, end=None):
 
 
 def expand(args_kwargs):
-    # Validate input is in ([], {}) form
-    if type(args_kwargs[0]) is not list:
+    # Validate if input is of ([], {}) form
+    if not args_kwargs:
+        return None
+    elif type(args_kwargs[0]) is not list:
         raise ValueError("1st element of params tuple has to be list")
     args = args_kwargs[0]
     try:

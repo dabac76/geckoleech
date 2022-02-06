@@ -3,7 +3,7 @@ import random
 import logging
 from time import sleep
 from dataclasses import dataclass
-from typing import ClassVar, List, Callable, Iterator, Optional
+from typing import ClassVar, List, Callable, Iterator, Optional, Union
 from pyjsonq import JsonQ
 from geckoleech.utils import save2db, expand
 
@@ -17,8 +17,8 @@ class APIReq:
     _leeches: ClassVar[List["APIReq"]] = []
     name: str
     req: Callable
-    params: tuple[List[Optional[set]], Optional[dict]]
-    json_query: Callable[[JsonQ], Iterator[List]]
+    params: Optional[tuple[List[Optional[set]], Optional[dict]]]
+    json_query: Callable[[JsonQ | dict], Union[List, Iterator[List]]]
     sql_query: str
 
     def __post_init__(self):
@@ -36,9 +36,14 @@ def _task(req: APIReq):
     sleep(random.choice([n/2 for n in range(1, 20)]))
     for args_kwargs in expand(req.params):
         try:
-            resp = req.req(*args_kwargs[0], **args_kwargs[1])
+            if not args_kwargs:
+                resp = req.req()
+            elif len(args_kwargs) == 1:
+                resp = req.req(*args_kwargs)
+            else:
+                resp = req.req(*args_kwargs[0], **args_kwargs[1])
         except Exception as e:
-            logging.error("%s | %s", args_kwargs, e)
+            logging.error("%s | %s", args_kwargs, str(e))
             continue
         else:
             row_gen = req.json_query(JsonQ(resp))
@@ -57,10 +62,11 @@ def leech():
             exe.submit(_task, obj): obj.name
             for obj in APIReq.all()
         }
+        print("\n")
         for fut in concurrent.futures.as_completed(futures):
             e = fut.exception()
             if e:
-                print(f"FAILED {futures[fut]} :")
+                print(f"THREAD FAILED: {futures[fut]}")
                 print(e)
             else:
-                print(f"SUCCESS: {futures[fut]}")
+                print(f"THREAD SUCCESS: {futures[fut]}")
