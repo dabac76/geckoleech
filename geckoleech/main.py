@@ -39,14 +39,14 @@ def _task(req: APIReq):
             if not args_kwargs:
                 resp = req.req()
             elif len(args_kwargs) == 1:
-                resp = req.req(*args_kwargs)
+                resp = req.req(*args_kwargs[0])
             else:
                 resp = req.req(*args_kwargs[0], **args_kwargs[1])
         except Exception as e:
-            logging.error("%s | %s", args_kwargs, str(e))
+            logging.error("%s | %s", str(args_kwargs), str(e))
             continue
         else:
-            row_gen = req.json_query(JsonQ(resp))
+            row_gen = req.json_query(JsonQ(data=resp))
             save2db(req.sql_query, row_gen)
             sleep(REQ_DELAY)
 

@@ -17,7 +17,7 @@ def test_task_log(req, xp, sl, lg):
     sl.side_effect = None
     xp.return_value = [("once",)]
     req.req.side_effect = Exception("ConnError")
-    args = ("%s | %s", ("once",), "ConnError")
+    args = ("%s | %s", str(("once",)), "ConnError")
     # with pytest.raises(Exception) as exc:
     #     gl._task(req)
     main._task(req)
@@ -27,7 +27,7 @@ def test_task_log(req, xp, sl, lg):
 # noinspection SqlResolve
 @patch("geckoleech.main._task")
 @patch.object(main.APIReq, "all")
-def test_concurrent_ddb(all_resp, task, ddb_cursor):
+def test_concurrent_ddb(all_resp, task, ddb_cursor, capsys):
     APIResp = namedtuple("APIResp", "data name")
     all_resp.return_value = [APIResp([("shitcoin0001", 2), ("shitcoin0002", 4)], "TASK1"),
                              APIResp([("shitcoin0003", 8), ("shitcoin0004", 16)], "TASK2"),
@@ -36,6 +36,8 @@ def test_concurrent_ddb(all_resp, task, ddb_cursor):
         ddb_cursor.executemany("INSERT INTO main.tst VALUES (?, ?);", r.data)
     main.leech()
     ddb_cursor.execute("SELECT * FROM main.tst;")
+    captured = capsys.readouterr()
     actuals = ddb_cursor.fetchall()
     expected = [*all_resp.return_value[0].data, *all_resp.return_value[1].data]
     assert all([actual in expected for actual in actuals])
+    assert "THREAD FAILED:" in captured.out

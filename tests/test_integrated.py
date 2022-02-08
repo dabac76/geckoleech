@@ -1,20 +1,26 @@
+import json
 from unittest.mock import patch
-from pyjsonq import JsonQ
+import numpy as np
+from numpy.testing import assert_allclose
+from geckoleech.main import APIReq, leech, JsonQ
 
-import main
-from geckoleech.main import APIReq
 
-
+# "yfi": 1.5756362568548483
+# "ars": 75747871453154.25
+# "lkr": 145929530894430.2,
+# "vnd": 16372077068486000,
 def fixed_req():
-    return JsonQ("./data.json")
+    with open("./data.json", "r") as f:
+        return json.load(f)
 
 
 def broken_req():
     raise ValueError("BadRequest")
 
 
-def fixed_req_args(curr, price):
-    return [[curr, price], [curr, price*2]]
+def fixed_req_args(curr, price, **kwargs):
+    _ = kwargs.items()
+    return {curr: price, curr+"T": price * 2}
 
 
 # noinspection SqlResolve
@@ -35,7 +41,7 @@ gcr2 = APIReq(
 )
 
 gcr3 = APIReq(
-    "GRC3: Raise thread exception to be printed to stdout",
+    "GCR3: Raise thread exception to be printed to stdout",
     fixed_req,
     None,
     lambda rsp: list(rsp.at('bad.json.key').get().items()),
@@ -44,11 +50,11 @@ gcr3 = APIReq(
 
 # noinspection SqlResolve
 gcr4 = APIReq(
-    "GCR4: Return data, with calling arguments",
+    "GCR4: Return data, with calling arguments and generator query",
     fixed_req_args,
-    ([{"usd", "eur"}, {4, 8}], {}),
-    lambda x: iter(x),
-    "INSERT INTO main.tst values (?, ?)"
+    ([{"USD", "EUR"}, {4, 8}], {}),
+    lambda jsq: (row for row in (jsq.get()).items()),
+    "INSERT INTO main.tst01 values (?, ?)"
 )
 
 
@@ -56,20 +62,40 @@ gcr4 = APIReq(
 @patch("geckoleech.main.logging")
 @patch("geckoleech.main.sleep")
 def test_integrated(sl, lg, ddb_cursor, capsys):
+
     sl.side_effect = None
     mock_log = []
-    lg.error.side_effect = lambda msg: mock_log.append(msg)
+    lg.error.side_effect = lambda msg1, msg2, msg3: mock_log.append(msg1+msg2+msg3)
+
     with patch("geckoleech.utils.DuckDB") as MockDB:
         instance = MockDB.return_value
         instance.__enter__.return_value = ddb_cursor
-        main.leech()
+        leech()
+    captured = capsys.readouterr()
+
+    # GCR1 testcase assertions
     ddb_cursor.execute("SELECT * FROM main.tst;")
     actual = ddb_cursor.fetchall()
-    expected_gcr1 = gcr1.json_query(fixed_req())
-    expected_gcr4 = [("usd", 4), ("usd", 8), ("eur", 4), ("eur", 8)]
-    captured = capsys.readouterr()
+    dt = np.dtype("U3, float")
+    actual = np.sort(np.array(actual, dt))
+    expected_gcr1 = gcr1.json_query(JsonQ(data=fixed_req()))
+    expected_gcr1 = np.sort(np.array(expected_gcr1, dt))
+    # With absolute tol <1e-05 round-off diff between db and python appear
+    assert_allclose(actual["f1"], expected_gcr1["f1"], atol=.0001)
+    assert "THREAD SUCCESS: GCR1" in captured.out
+
+    # GCR2 testcase assertions
     lg.error.assert_called_once()
-    assert "BadRequest" in mock_log
-    assert all([expect in actual for expect in expected_gcr1])
-    assert all([expect in actual for expect in expected_gcr4])
-    assert "THREAD FAILED:" in captured.out
+    assert any(["BadRequest" in line for line in mock_log])
+    assert "THREAD SUCCESS: GCR2" in captured.out
+
+    # GCR3 testcase assertions
+    assert "THREAD FAILED: GCR3" in captured.out
+
+    # GCR4 testcase assertions
+    assert "THREAD SUCCESS: GCR4" in captured.out
+    ddb_cursor.execute("SELECT curr, CAST(SUM(price) AS DOUBLE) "
+                       "FROM main.tst01 GROUP BY curr;")
+    actual = ddb_cursor.fetchall()
+    expected = [("USD", 12.0), ("USDT", 24.0), ("EUR", 12.0), ("EURT", 24.0)]
+    assert all([el in expected for el in actual])

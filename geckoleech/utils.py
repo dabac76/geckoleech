@@ -33,7 +33,7 @@ def dates_cg_format(start, end=None):
 def expand(args_kwargs):
     # Validate if input is of ([], {}) form
     if not args_kwargs:
-        return None
+        return [None]
     elif type(args_kwargs[0]) is not list:
         raise ValueError("1st element of params tuple has to be list")
     args = args_kwargs[0]
@@ -49,7 +49,7 @@ def expand(args_kwargs):
     scalars = tuple(arg for arg in args if type(arg) is not set)
     args_expanded = [scalars + elem for elem in product(*combs)]
     if not kwargs:
-        return args_expanded
+        return [(el,) for el in args_expanded]
     # Expand all combinations of given keyword arguments
     # (Only keys having sets associated to them will expand to all combinations)
     kwargs_expanded = None
