@@ -3,21 +3,18 @@ from itertools import product
 import duckdb
 
 
-DB_PATH = "geckoleech.db"
-
-
 class DuckDB:
 
-    conn = duckdb.connect(database=DB_PATH, read_only=False)
+    DB_PATH = "geckoleech.db"
 
-    def __init__(self):
-        self.cursor = DuckDB.conn.cursor()
+    def __init__(self, read_only=False):
+        self.conn = duckdb.connect(database=DuckDB.DB_PATH, read_only=read_only)
 
     def __enter__(self):
-        return self.cursor
+        return self.conn
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.cursor.close()
+        self.conn.close()
 
 
 def dates_cg_format(start, end=None):
@@ -70,9 +67,3 @@ def expand(args_kwargs):
     finally:
         # Combine with expanded positional args
         return list(product(args_expanded, kwargs_expanded))
-
-
-def save2db(query, gen):
-    with DuckDB() as db:
-        db.executemany(query, gen)
-        db.commit()

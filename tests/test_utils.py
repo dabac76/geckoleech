@@ -52,26 +52,3 @@ def test_expand_edges(args_kwargs, expected):
     actuals = utils.expand(args_kwargs)
     assert len(actuals) == len(expected)
     assert all([actual in expected for actual in actuals])
-
-
-# noinspection SqlResolve
-def test_ddb(ddb_cursor):
-    rows = [("btc", 2), ("eth", 4)]
-    row_gen = (row for row in rows)
-    ddb_cursor.executemany("INSERT INTO main.tst VALUES (?, ?);", row_gen)
-    ddb_cursor.execute("SELECT * FROM main.tst;")
-    actual = ddb_cursor.fetchall()
-    assert actual == rows
-
-
-# noinspection SqlResolve
-def test_save2db(ddb_cursor):
-    rows = [("shitcoin0001", 2), ("shitcoin0002", 4)]
-    row_gen = (row for row in rows)
-    with patch("geckoleech.utils.DuckDB") as MockDB:
-        instance = MockDB.return_value
-        instance.__enter__.return_value = ddb_cursor
-        utils.save2db("INSERT INTO main.tst VALUES (?, ?);", row_gen)
-    ddb_cursor.execute("SELECT * FROM main.tst;")
-    actual = ddb_cursor.fetchall()
-    assert actual == rows

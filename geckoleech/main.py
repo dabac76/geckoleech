@@ -1,11 +1,13 @@
+import threading
 import concurrent.futures
 import random
 import logging
 from time import sleep
 from dataclasses import dataclass
 from typing import ClassVar, List, Callable, Iterator, Optional, Union
+from queue import Queue, Empty
 from pyjsonq import JsonQ
-from geckoleech.utils import save2db, expand
+from geckoleech.utils import DuckDB, expand
 
 REQ_DELAY = 1.5
 LOG_PATH = "geckoleech.log"
@@ -32,7 +34,7 @@ class APIReq:
         return cls._leeches
 
 
-def _task(req: APIReq):
+def _task(req: APIReq, q: Queue):
     sleep(random.choice([n/2 for n in range(1, 20)]))
     for args_kwargs in expand(req.params):
         try:
@@ -47,26 +49,41 @@ def _task(req: APIReq):
             continue
         else:
             row_gen = req.json_query(JsonQ(data=resp))
-            save2db(req.sql_query, row_gen)
+            q.put((req.sql_query, row_gen))
             sleep(REQ_DELAY)
 
 
-# Retrying should be handled inside api call (pycoingecko in this case has
-# hardcoded 5)
-# Pagination. Pagination handler is a paid feature in CoinGeckoAPI pro.
-# TODO: Implement cli: --db-status and --filter-request commands
-# TODO: --dry-run to validate APIReq call parameters
+# TODO: How to handle database exceptions??
+def _cons(q: Queue):
+    with DuckDB() as db:
+        while True:
+            try:
+                data = q.get()
+            except Empty:
+                continue
+            else:
+                db.executemany(*data)
+
+
+# Retrying is responsibility of api call (pycoingecko tries 5x hardcoded)
+# Pagination also (is paid feature in CoinGeckoAPI pro)
 def leech():
+    q = Queue()
+
+    dbt = threading.Thread(target=_cons, args=(q,), daemon=True)
+    dbt.start()
+
     with concurrent.futures.ThreadPoolExecutor() as exe:
         futures = {
-            exe.submit(_task, obj): obj.name
+            exe.submit(_task, obj, q): obj.name
             for obj in APIReq.all()
         }
-        print("\n")
-        for fut in concurrent.futures.as_completed(futures):
-            e = fut.exception()
-            if e:
-                print(f"THREAD FAILED: {futures[fut]}")
-                print(e)
-            else:
-                print(f"THREAD SUCCESS: {futures[fut]}")
+
+    print("\n")
+    for fut in concurrent.futures.as_completed(futures):
+        e = fut.exception()
+        if e:
+            print(f"THREAD FAILED: {futures[fut]}")
+            print(e)
+        else:
+            print(f"THREAD SUCCESS: {futures[fut]}")
