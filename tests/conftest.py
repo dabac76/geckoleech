@@ -16,6 +16,8 @@ def ddb_prepare():
 # After DuckDB 0.3.2. update, read_only=False
 # connection/cursor made in one thread cannot be used in another
 # Nice trick to use the same conn inside tests, while it worked:
+# (When patching a class, return value has to be set on instance
+#  first)
 # with patch("DuckDB") as MockDB:
 #     instance = MockDB.return_value
 #     instance.__enter__.return_value = ddb_cursor

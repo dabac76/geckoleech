@@ -20,7 +20,7 @@ class APIReq:
     name: str
     req: Callable
     params: Optional[tuple[List[Optional[set]], Optional[dict]]]
-    json_query: Callable[[JsonQ | dict], Union[List, Iterator[List]]]
+    json_query: Callable[[JsonQ | dict], Union[List[List | tuple], Iterator[List]]]
     sql_query: str
 
     def __post_init__(self):
@@ -45,27 +45,38 @@ def _task(req: APIReq, q: Queue):
             else:
                 resp = req.req(*args_kwargs[0], **args_kwargs[1])
         except Exception as e:
-            logging.error("%s | %s", str(args_kwargs), str(e))
+            logging.error("REQUEST Error: %s | %s", str(args_kwargs), str(e))
             continue
         else:
-            row_gen = req.json_query(JsonQ(data=resp))
-            q.put((req.sql_query, row_gen))
+            try:
+                # Query has to return
+                # Union[List[List | tuple], Iterator[List]]]
+                # in order for DuckDb.con.executemany to work
+                row_gen = req.json_query(JsonQ(data=resp))
+            except Exception as e:
+                raise e
+            else:
+                q.put((req.sql_query, row_gen))
             sleep(REQ_DELAY)
 
 
-# TODO: How to handle database exceptions??
-def _cons(q: Queue, e: threading.Event):
+def _cons(q: Queue, evt: threading.Event):
     with DuckDB() as db:
-        while not e.is_set():
+        print("enter")
+        # while not evt.is_set():
+        while True:
             try:
                 data = q.get()
             except Empty:
                 continue
             else:
                 try:
-                    db.executemany(*data)
-                except Exception as e:
-                    logging.error("DuckDB: %s | %s", data[0], str(e))
+                    # row_gen has to be of
+                    # Union[List[List | tuple], Iterator[List]]]
+                    print(data)
+                    # db.executemany(*data)
+                except Exception as exc:
+                    logging.error("DUCKDB Error: %s | %s", data[0], str(exc))
                     continue
 
 
@@ -73,11 +84,13 @@ def _cons(q: Queue, e: threading.Event):
 # Pagination also (is paid feature in CoinGeckoAPI pro)
 def leech():
     q = Queue()
-    e = threading.Event()
+    evt = threading.Event()
 
-    dbt = threading.Thread(target=_cons, args=(q, e), daemon=True)
+    # Database consumer
+    dbt = threading.Thread(target=_cons, args=(q, evt), daemon=True)
     dbt.start()
 
+    # Json producers
     with concurrent.futures.ThreadPoolExecutor() as exe:
         futures = {
             exe.submit(_task, obj, q): obj.name
@@ -86,11 +99,11 @@ def leech():
 
     print("\n")
     for fut in concurrent.futures.as_completed(futures):
-        e = fut.exception()
-        if e:
-            print(f"THREAD FAILED: {futures[fut]}")
-            print(e)
+        exc = fut.exception()
+        if exc:
+            print(f"JSONQuery Error: {futures[fut]}")
+            print(exc)
         else:
             print(f"THREAD SUCCESS: {futures[fut]}")
 
-    e.set()
+    evt.set()
