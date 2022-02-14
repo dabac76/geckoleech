@@ -2,6 +2,8 @@ import click
 # import duckdb
 
 
+# TODO: Clean database
+# TODO: Init database (create model)
 @click.group()
 def cli():
     pass

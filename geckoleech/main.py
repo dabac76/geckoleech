@@ -54,23 +54,28 @@ def _task(req: APIReq, q: Queue):
 
 
 # TODO: How to handle database exceptions??
-def _cons(q: Queue):
+def _cons(q: Queue, e: threading.Event):
     with DuckDB() as db:
-        while True:
+        while not e.is_set():
             try:
                 data = q.get()
             except Empty:
                 continue
             else:
-                db.executemany(*data)
+                try:
+                    db.executemany(*data)
+                except Exception as e:
+                    logging.error("DuckDB: %s | %s", data[0], str(e))
+                    continue
 
 
 # Retrying is responsibility of api call (pycoingecko tries 5x hardcoded)
 # Pagination also (is paid feature in CoinGeckoAPI pro)
 def leech():
     q = Queue()
+    e = threading.Event()
 
-    dbt = threading.Thread(target=_cons, args=(q,), daemon=True)
+    dbt = threading.Thread(target=_cons, args=(q, e), daemon=True)
     dbt.start()
 
     with concurrent.futures.ThreadPoolExecutor() as exe:
@@ -87,3 +92,5 @@ def leech():
             print(e)
         else:
             print(f"THREAD SUCCESS: {futures[fut]}")
+
+    e.set()
