@@ -1,4 +1,4 @@
-import threading
+from threading import Lock
 import concurrent.futures
 import random
 import logging
@@ -48,62 +48,42 @@ def _task(req: APIReq, q: Queue):
             logging.error("REQUEST Error: %s | %s", str(args_kwargs), str(e))
             continue
         else:
-            try:
-                # Query has to return
-                # Union[List[List | tuple], Iterator[List]]]
-                # in order for DuckDb.con.executemany to work
-                row_gen = req.json_query(JsonQ(data=resp))
-            except Exception as e:
-                raise e
-            else:
-                q.put((req.sql_query, row_gen))
+            q.put((req.sql_query, req.json_query, resp))
             sleep(REQ_DELAY)
-
-
-def _cons(q: Queue, evt: threading.Event):
-    with DuckDB() as db:
-        print("enter")
-        # while not evt.is_set():
-        while True:
-            try:
-                data = q.get()
-            except Empty:
-                continue
-            else:
-                try:
-                    # row_gen has to be of
-                    # Union[List[List | tuple], Iterator[List]]]
-                    print(data)
-                    # db.executemany(*data)
-                except Exception as exc:
-                    logging.error("DUCKDB Error: %s | %s", data[0], str(exc))
-                    continue
 
 
 # Retrying is responsibility of api call (pycoingecko tries 5x hardcoded)
 # Pagination also (is paid feature in CoinGeckoAPI pro)
 def leech():
     q = Queue()
-    evt = threading.Event()
+    lock = Lock()
+    reqs = APIReq.all()
+    in_process = len(reqs)
 
-    # Database consumer
-    dbt = threading.Thread(target=_cons, args=(q, evt), daemon=True)
-    dbt.start()
+    # noinspection PyUnusedLocal
+    def cnt_progress(future):
+        nonlocal lock, in_process
+        with lock:
+            in_process -= 1
 
-    # Json producers
+    # JSON Producers
     with concurrent.futures.ThreadPoolExecutor() as exe:
         futures = {
             exe.submit(_task, obj, q): obj.name
-            for obj in APIReq.all()
+            for obj in reqs
         }
+        for fut in futures:
+            futures[fut].add_done_callback(cnt_progress)
 
-    print("\n")
-    for fut in concurrent.futures.as_completed(futures):
-        exc = fut.exception()
-        if exc:
-            print(f"JSONQuery Error: {futures[fut]}")
-            print(exc)
-        else:
-            print(f"THREAD SUCCESS: {futures[fut]}")
-
-    evt.set()
+        with DuckDB() as db:
+            while in_process > 0 or not q.empty():
+                try:
+                    sql_query, json_query, resp = q.get()
+                except Empty:
+                    continue
+                else:
+                    # JSON Query has to return
+                    # Union[List[List | tuple], Iterator[List]]
+                    # in order for DuckDb.con.executemany to work
+                    row_gen = json_query(JsonQ(data=resp))
+                    db.executemany(sql_query, row_gen)
