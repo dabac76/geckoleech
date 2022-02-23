@@ -1,10 +1,8 @@
-import threading
 from collections import namedtuple
-from queue import Queue, Empty
-from unittest.mock import Mock, patch
-
+from queue import Queue
+from unittest.mock import Mock, patch, PropertyMock
+from pyjsonq import JsonQ
 import duckdb
-
 import geckoleech.main as main
 
 
@@ -28,56 +26,41 @@ def test_task_log(req, xp, sl, lg):
 
 
 # noinspection SqlResolve
-@patch("geckoleech.main.logging")
 @patch("geckoleech.main._task")
-@patch.object(main.DuckDB, "DB_PATH")
+@patch.object(main.DuckDB, "DB_PATH", new_callable=PropertyMock)
 @patch.object(main.APIReq, "all")
-def test_ddb_thread(all_resp, db, task, lg, ddb_cursor):
-
-    db.return_value = "./tests/test.db"
+def test_leech(all_resp, db, task, ddb_prepare):
+    db.return_value = "test.db"
     # lg.error.reset_mock()
-
     APIResp = namedtuple("APIResp", "data name")
-    # all_resp.return_value = \
-    #     [APIResp([("shitcoin0001", 2), ("shitcoin0002", 4)], "TASK1"),
-    #      APIResp([("shitcoin0003", 8), ("shitcoin0004", 16)], "TASK2"),
+
+    data1 = {"InsolventX": [{"name": "shitcoin1", "price": 2},
+                            {"name": "shitcoin2", "price": 4}]}
+
+    data2 = {"InsolventX": [{"name": "shitcoin3", "price": 8},
+                            {"name": "shitcoin4", "price": 16}]}
+
     #      APIResp([ValueError("Row Generator Error")], "TASK3")]
-    all_resp.return_value = \
-        [APIResp([("shitcoin0001", 2), ("shitcoin0002", 4)], "TASK1"),
-         APIResp([("shitcoin0003", 8), ("shitcoin0004", 16)], "TASK2")]
+    all_resp.return_value = [APIResp(data1, "TASK1"), APIResp(data2, "TASK2")]
 
-    stmt = "INSERT INTO main.tst VALUES (?, ?);"
-    # task.side_effect = lambda r, q: q.put((stmt, r.data))
+    sql = "INSERT INTO main.tst VALUES (?, ?);"
 
-    # main.leech()
+    def json_query(js: JsonQ):
+        jq = js.at("InsolventX").where("price", ">", 0).get()
+        return [(el["name"], el["price"]) for el in jq]
 
-    q = Queue()
-    # evt = threading.Event()
-    q.put((stmt, [("shitcoin0001", 2), ("shitcoin0002", 4)]))
-    q.put((stmt, [("shitcoin0003", 8), ("shitcoin0004", 16)]))
+    task.side_effect = lambda r, q: q.put((sql, json_query, r.data))
 
-    def _th1(qq: Queue):
-        con = duckdb.connect("test.db", read_only=False)
-        while qq.not_empty:
-            try:
-                data = qq.get()
-            except Empty:
-                continue
-            else:
-                print("\n")
-                print(data)
-                con.executemany(*data)
+    main.leech()
 
-    dbt = threading.Thread(target=_th1, args=(q,), daemon=True)
-    dbt.start()
-
-    ddb_cursor.execute("SELECT * FROM main.tst;")
-    actuals = ddb_cursor.fetchall()
-    expected = [*all_resp.return_value[0].data, *all_resp.return_value[1].data]
-    print("\n")
-    print(actuals)
+    # Mystery: If DuckDb conn cursor is passed to test function from
+    # conftest.py coroutine, then this query returns empty list !?!?
+    con = duckdb.connect("test.db", read_only=True)
+    con.execute("SELECT * FROM main.tst;")
+    actuals = con.fetchall()
+    con.close()
+    expected = json_query(JsonQ(data=data1)) + json_query(JsonQ(data=data2))
     assert all([actual in expected for actual in actuals])
 
-    # args = ("DUCKDB Error: %s | %s", stmt, "Row Generator Error")
+    # args = ("DUCKDB Error: %s | %s", sql, "Row Generator Error")
     # lg.error.assert_called_once_with(*args)
-    # evt.set()

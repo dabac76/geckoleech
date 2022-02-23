@@ -72,8 +72,8 @@ def leech():
             exe.submit(_task, obj, q): obj.name
             for obj in reqs
         }
-        for fut in futures:
-            futures[fut].add_done_callback(cnt_progress)
+        for fut in futures.keys():
+            fut.add_done_callback(cnt_progress)
 
         with DuckDB() as db:
             while in_process > 0 or not q.empty():
@@ -82,8 +82,10 @@ def leech():
                 except Empty:
                     continue
                 else:
-                    # JSON Query has to return
+                    # DuckDb.con.executemany function demands
+                    # JSON query to return either iterable or iterator:
                     # Union[List[List | tuple], Iterator[List]]
-                    # in order for DuckDb.con.executemany to work
+                    # So if a single record is returned (tuple),
+                    # it has to be enclosed in a list.
                     row_gen = json_query(JsonQ(data=resp))
                     db.executemany(sql_query, row_gen)

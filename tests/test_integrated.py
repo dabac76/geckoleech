@@ -1,8 +1,10 @@
 import json
-from unittest.mock import patch
+from unittest.mock import patch, PropertyMock
+
+import duckdb
 import numpy as np
 from numpy.testing import assert_allclose
-from geckoleech.main import APIReq, leech, JsonQ
+from geckoleech.main import APIReq, leech, JsonQ, DuckDB
 
 
 # "yfi": 1.5756362568548483
@@ -59,29 +61,30 @@ gcr4 = APIReq(
 
 
 # noinspection SqlResolve
+@patch.object(DuckDB, "DB_PATH", new_callable=PropertyMock)
 @patch("geckoleech.main.logging")
 @patch("geckoleech.main.sleep")
-def test_integrated(sl, lg, ddb_cursor, capsys):
+def test_integrated(sl, lg, db, ddb_prepare, capsys):
 
+    db.return_value = "test.db"
     sl.side_effect = None
     mock_log = []
     lg.error.side_effect = lambda msg1, msg2, msg3: mock_log.append(msg1+msg2+msg3)
 
-    with patch("geckoleech.utils.DuckDB") as MockDB:
-        instance = MockDB.return_value
-        instance.__enter__.return_value = ddb_cursor
-        leech()
+    leech()
+
     captured = capsys.readouterr()
+    con = duckdb.connect("test.db", read_only=True)
 
     # GCR1 testcase assertions
-    ddb_cursor.execute("SELECT * FROM main.tst;")
-    actual = ddb_cursor.fetchall()
+    con.execute("SELECT * FROM main.tst;")
+    actual = con.fetchnumpy()
     dt = np.dtype("U3, float")
-    actual = np.sort(np.array(actual, dt))
+    actual = np.sort(actual["price"])
     expected_gcr1 = gcr1.json_query(JsonQ(data=fixed_req()))
     expected_gcr1 = np.sort(np.array(expected_gcr1, dt))
     # With absolute tol <1e-05 round-off diff between db and python appear
-    # assert_allclose(actual["f1"], expected_gcr1["f1"], atol=.0001)
+    assert_allclose(actual["f1"], expected_gcr1["f1"], atol=.0001)
     assert "THREAD SUCCESS: GCR1" in captured.out
 
     # GCR2 testcase assertions
@@ -94,8 +97,8 @@ def test_integrated(sl, lg, ddb_cursor, capsys):
 
     # GCR4 testcase assertions
     assert "THREAD SUCCESS: GCR4" in captured.out
-    ddb_cursor.execute("SELECT curr, CAST(SUM(price) AS DOUBLE) "
+    con.execute("SELECT curr, CAST(SUM(price) AS DOUBLE) "
                        "FROM main.tst01 GROUP BY curr;")
-    actual = ddb_cursor.fetchall()
+    actual = con.fetchall()
     expected = [("USD", 12.0), ("USDT", 24.0), ("EUR", 12.0), ("EURT", 24.0)]
     assert all([el in expected for el in actual])
