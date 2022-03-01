@@ -48,7 +48,7 @@ def _task(req: APIReq, q: Queue):
             logging.error("REQUEST Error: %s | %s", str(args_kwargs), str(e))
             continue
         else:
-            q.put((req.sql_query, req.json_query, resp))
+            q.put((args_kwargs, req.sql_query, req.json_query, resp))
             sleep(REQ_DELAY)
 
 
@@ -78,7 +78,7 @@ def leech():
         with DuckDB() as db:
             while in_process > 0 or not q.empty():
                 try:
-                    sql_query, json_query, resp = q.get()
+                    args_kwargs, sql_query, json_query, resp = q.get()
                 except Empty:
                     continue
                 else:
@@ -89,3 +89,4 @@ def leech():
                     # it has to be enclosed in a list.
                     row_gen = json_query(JsonQ(data=resp))
                     db.executemany(sql_query, row_gen)
+                    print(f"SUCCESS: {args_kwargs}")

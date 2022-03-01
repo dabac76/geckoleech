@@ -29,9 +29,9 @@ def test_task_log(req, xp, sl, lg):
 @patch("geckoleech.main._task")
 @patch.object(main.DuckDB, "DB_PATH", new_callable=PropertyMock)
 @patch.object(main.APIReq, "all")
-def test_leech(all_resp, db, task, ddb_prepare):
+def test_leech(all_resp, db, task, ddb_prepare, capsys):
     db.return_value = "test.db"
-    # lg.error.reset_mock()
+
     APIResp = namedtuple("APIResp", "data name")
 
     data1 = {"InsolventX": [{"name": "shitcoin1", "price": 2},
@@ -49,9 +49,11 @@ def test_leech(all_resp, db, task, ddb_prepare):
         jq = js.at("InsolventX").where("price", ">", 0).get()
         return [(el["name"], el["price"]) for el in jq]
 
-    task.side_effect = lambda r, q: q.put((sql, json_query, r.data))
+    task.side_effect = lambda r, q: q.put(("args_kwargs", sql, json_query, r.data))
 
     main.leech()
+
+    captured = capsys.readouterr()
 
     # Mystery: If DuckDb conn cursor is passed to test function from
     # conftest.py coroutine, then this query returns empty list !?!?
@@ -61,6 +63,4 @@ def test_leech(all_resp, db, task, ddb_prepare):
     con.close()
     expected = json_query(JsonQ(data=data1)) + json_query(JsonQ(data=data2))
     assert all([actual in expected for actual in actuals])
-
-    # args = ("DUCKDB Error: %s | %s", sql, "Row Generator Error")
-    # lg.error.assert_called_once_with(*args)
+    assert "SUCCESS: args_kwargs" in captured.out
