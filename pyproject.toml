@@ -1,12 +1,11 @@
 [tool.poetry]
 name = "geckoleech"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-pycoingecko = "^2.2.0"
 pyjsonq = "^1.0.2"
 duckdb = "^0.3.1"
 click = "^8.0.3"
@@ -14,6 +13,7 @@ click = "^8.0.3"
 [tool.poetry.dev-dependencies]
 pytest = "^6.2"
 pytest-mock = "^3.6.1"
+pycoingecko = "^2.2.0"
 
 [tool.poetry.scripts]
 gecko = "geckoleech.cli:cli"

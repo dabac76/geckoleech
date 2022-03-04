@@ -11,9 +11,9 @@ yesterday = (datetime.today() - timedelta(days=1)).strftime("%d-%m-%Y")
 @pytest.mark.parametrize("start, end", [(yesterday, None), ("01-01-2022", "03-01-2022")])
 def test_dates_cg_format(start, end):
     if end is None:
-        assert utils.dates_cg_format(start) == {yesterday, today}
+        assert utils.dates(start) == {yesterday, today}
     else:
-        assert utils.dates_cg_format(start, end) == {"01-01-2022", "02-01-2022", "03-01-2022"}
+        assert utils.dates(start, end) == {"01-01-2022", "02-01-2022", "03-01-2022"}
 
 
 @pytest.fixture()

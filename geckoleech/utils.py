@@ -17,13 +17,24 @@ class DuckDB:
         self.conn.close()
 
 
-def dates_cg_format(start, end=None):
-    start = dt.datetime.strptime(start, "%d-%m-%Y").date()
+def dates(start, end=None, dformat="%d-%m-%Y"):
+    """Returns set of all dates within desired interval in a given format.
+
+    :param start: Start of interval given as string in dformat.
+    :type start: str
+    :param end: Optional, end of interval given as string in dformat.
+        (default None). If not given end is today's date.
+    :type end: str
+    :param dformat: Optional. Default: "%d-%m-%Y". Used to parse date strings.
+    :returns: A set of dates as strings in dformat for each day within interval.
+    :rtype: set
+    """
+    start = dt.datetime.strptime(start, dformat).date()
     if end is None:
         end = dt.datetime.now().date()
     else:
-        end = dt.datetime.strptime(end, "%d-%m-%Y").date()
-    return {(start + dt.timedelta(days=dx)).strftime("%d-%m-%Y")
+        end = dt.datetime.strptime(end, dformat).date()
+    return {(start + dt.timedelta(days=dx)).strftime(dformat)
             for dx in range((end - start).days + 1)}
 
 

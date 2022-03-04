@@ -16,6 +16,27 @@ logging.basicConfig(filename=LOG_PATH, filemode="w", level=logging.ERROR)
 
 @dataclass
 class APIReq:
+    """
+    Specify: REST API request, transformation of json response and insertion to DuckDB.
+
+        :param name: Arbitrary name for diagnostic/reporting purpose. Will be printed to stdout during run.
+        :type name: str
+        :param req: Callable that encloses whole rest api request logic: retrying, pagination, ...
+        Expected to return dictionary.
+        :type req: Callable
+        :param params: Request args/kwargs passed to callable.
+        When given inside a set will be expanded to all possible combinations.
+        :type params: Optional[tuple[List[Optional[set]], Optional[dict]]]
+        :param json_query: Callable to transform api response prior to insertion to database.
+        You may use pyjsonq flavour query. Should return either iterable or iterator.
+        :type json_query: Callable[[JsonQ | dict], Union[List[List | tuple], Iterator[List]]]
+        :param sql_query: Insertion query in DuckDB sql. Specify how to insert the result of previous json query.
+        :type sql_query: str
+
+    :Note:
+    After instantiating all desired APIReq object call leech() to start...well...
+    leeching.
+    """
     _leeches: ClassVar[List["APIReq"]] = []
     name: str
     req: Callable
