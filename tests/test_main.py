@@ -1,15 +1,18 @@
 from collections import namedtuple
 from queue import Queue
-from unittest.mock import Mock, patch, PropertyMock
+from unittest.mock import Mock, MagicMock ,patch, PropertyMock
 from pyjsonq import JsonQ
 import duckdb
 import geckoleech.main as main
 
 
 def test_class_counter():
-    gco1 = main.APIReq("gc01", Mock(), Mock(), Mock(), Mock())
-    gco2 = main.APIReq("gc02", Mock(), Mock(), Mock(), Mock())
+    gco1 = main.APIReq("gc01", Mock(), Mock(), MagicMock(), MagicMock())
+    gco2 = main.APIReq("gc02", Mock(), Mock(), MagicMock(), MagicMock())
     assert main.APIReq.all() == [gco1, gco2]
+
+    # For the case when running all the tests
+    main.APIReq._leeches = []
 
 
 @patch("geckoleech.main.logging")
@@ -40,7 +43,6 @@ def test_leech(all_resp, db, task, ddb_prepare, capsys):
     data2 = {"InsolventX": [{"name": "shitcoin3", "price": 8},
                             {"name": "shitcoin4", "price": 16}]}
 
-    #      APIResp([ValueError("Row Generator Error")], "TASK3")]
     all_resp.return_value = [APIResp(data1, "TASK1"), APIResp(data2, "TASK2")]
 
     sql = "INSERT INTO main.tst VALUES (?, ?);"
@@ -49,7 +51,7 @@ def test_leech(all_resp, db, task, ddb_prepare, capsys):
         jq = js.at("InsolventX").where("price", ">", 0).get()
         return [(el["name"], el["price"]) for el in jq]
 
-    task.side_effect = lambda r, q: q.put(("args_kwargs", sql, json_query, r.data))
+    task.side_effect = lambda r, q: q.put(("args_kwargs", [sql], [json_query], r.data))
 
     main.leech()
 

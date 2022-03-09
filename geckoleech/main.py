@@ -14,6 +14,7 @@ LOG_PATH = "geckoleech.log"
 logging.basicConfig(filename=LOG_PATH, filemode="w", level=logging.ERROR)
 
 
+# noinspection PyUnresolvedReferences,GrazieInspection
 @dataclass
 class APIReq:
     """
@@ -21,7 +22,7 @@ class APIReq:
 
         :param name: Arbitrary name for diagnostic/reporting purpose. Will be printed to stdout during run.
         :type name: str
-        :param req: Callable that encloses whole rest api request logic: retrying, pagination, ...
+        :param req: Callable that encloses whole rest api request logic including retrying, pagination, ...
         Expected to return dictionary.
         :type req: Callable
         :param params: Request args/kwargs passed to callable.
@@ -41,10 +42,11 @@ class APIReq:
     name: str
     req: Callable
     params: Optional[tuple[List[Optional[set]], Optional[dict]]]
-    json_query: Callable[[JsonQ | dict], Union[List[List | tuple], Iterator[List]]]
-    sql_query: str
+    json_query: List[Callable[[JsonQ | dict], Union[List[List | tuple], Iterator[List]]]]
+    sql_query: List[str]
 
     def __post_init__(self):
+        assert len(self.json_query) == len(self.sql_query)
         APIReq._leeches.append(self)
 
     def __str__(self):
@@ -96,6 +98,7 @@ def leech():
         for fut in futures.keys():
             fut.add_done_callback(cnt_progress)
 
+        # Database consumer
         with DuckDB() as db:
             while in_process > 0 or not q.empty():
                 try:
@@ -108,6 +111,7 @@ def leech():
                     # Union[List[List | tuple], Iterator[List]]
                     # So if a single record is returned (tuple),
                     # it has to be enclosed in a list.
-                    row_gen = json_query(JsonQ(data=resp))
-                    db.executemany(sql_query, row_gen)
+                    for query_pair in zip(json_query, sql_query):
+                        row_gen = query_pair[0](JsonQ(data=resp))
+                        db.executemany(query_pair[1], row_gen)
                     print(f"SUCCESS: {args_kwargs}")

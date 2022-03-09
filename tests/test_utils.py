@@ -1,4 +1,3 @@
-from unittest.mock import patch
 from datetime import datetime, timedelta
 import pytest
 import geckoleech.utils as utils

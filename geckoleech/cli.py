@@ -6,9 +6,6 @@ from geckoleech.utils import DuckDB
 """
 
 
-# TODO: Clean database
-# TODO: Init database (create model)
-# TODO: Report status in database
 @click.group()
 def cli():
     pass
@@ -34,8 +31,8 @@ def db_ddl(file, stmt):
 def db_stat():
     with DuckDB as ddb:
         ddb.execute("PRAGMA show_tables;")
-        tbls = ddb.fetchall()
-        for tbl in tbls:
+        tables = ddb.fetchall()
+        for tbl in tables:
             print("-"*20)
             print(tbl)
             print("-" * 20)
@@ -56,6 +53,7 @@ def db_stat():
         print("-" * 20)
 
 
+# TODO: Dry-Run
 @cli.command("dry-run")
 def dry_run():
     click.echo("RUN DRY")
