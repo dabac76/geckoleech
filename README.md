@@ -37,21 +37,25 @@ gecko ddb-dl -f <path-to-file-with-sql-statement>
 To instantiate `APIReq` object, user needs to provide the following:
 
 ```python
+from dataclasses import dataclass
+from typing import List, Callable, Iterator, Optional, Union
+from pyjsonq import JsonQ
+
+
+@dataclass()
 class APIReq:
     name: str  #Just for reporting purpose.
     req: Callable  #Performs api requests by using all combinations of params as args/kwargs
-    params: Optional[tuple[List[Optional[set]], Optional[dict]]]
-    json_query: Callable[[JsonQ | dict], Union[List[List | tuple], Iterator[List]]]  #pyjsonq flavour.
-    sql_query: str  #Insertion query.
+    params: Optional[tuple[List[Optional[set]], Optional[dict]]] # None or tuple(list, dict)
+    json_queries: List[Callable[[JsonQ | dict], Union[List[List | tuple], Iterator[List]]]]  #pyjsonq flavour.
+    sql_queries: List[str]  #Insertion query.
 
 ```
-
-For example: if callable `get_data` is given as a `req` and if `params` which has to be given in form `([], {})` is given as:
+For example: for a given callable `req: get_data` and `params` given as:
 
 ```python
 ([{"date1", "date2"}, {1, 2}, 3], {"key1": "val1", "key2": {5, 6}})
 ```
-
 Then callable will be called the following number of times and with the following argument combinations:
 
 ```python

@@ -33,8 +33,8 @@ gcr1 = APIReq(
     "GCR1: Return data, no calling arguments (params), multiple json/sql queries",
     fixed_req,
     None,
-    [lambda rsp: list((rsp.at('.market_data.current_price').get()).items()),
-     lambda rsp: [tuple(el[1] for el in list(rsp.at('.community_data').get().items())[1:3])]
+    [lambda rsp, ignore: list((rsp.at('.market_data.current_price').get()).items()),
+     lambda rsp, ignore: [tuple(el[1] for el in list(rsp.at('.community_data').get().items())[1:3])]
      ],
     ["INSERT INTO main.tst VALUES (?, ?)",
      "INSERT INTO main.tst_soc VALUES (?, ?)"
@@ -45,7 +45,7 @@ gcr2 = APIReq(
     "GCR2: Raise API request exception to be logged",
     broken_req,
     None,
-    [lambda x: x],  # Never called
+    [lambda x, ignore: x],  # Never called
     [" .. "]  # Never executed
 )
 
@@ -54,7 +54,7 @@ gcr4 = APIReq(
     "GCR4: Return data, with calling arguments and generator json-query",
     fixed_req_args,
     ([{"USD", "EUR"}, {4, 8}], {}),
-    [lambda jsq: (row for row in (jsq.get()).items())],
+    [lambda rsp, ignore: (row for row in (rsp.get()).items())],
     ["INSERT INTO main.tst01 values (?, ?)"]
 )
 
@@ -80,7 +80,7 @@ def test_integrated(sl, lg, db, ddb_prepare, capsys):
     actual = con.fetchnumpy()
     dt = np.dtype("U3, float")
     actual = np.sort(actual["price"])
-    expected_gcr1 = gcr1.json_query[0](JsonQ(data=fixed_req()))
+    expected_gcr1 = gcr1.json_queries[0](JsonQ(data=fixed_req()), [])
     expected_gcr1 = np.array(expected_gcr1, dt)
     expected_gcr1["f1"].sort()
     expected_gcr1 = expected_gcr1["f1"]

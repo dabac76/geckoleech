@@ -28,11 +28,11 @@ class APIReq:
         :param params: Request args/kwargs passed to callable.
         When given inside a set will be expanded to all possible combinations.
         :type params: Optional[tuple[List[Optional[set]], Optional[dict]]]
-        :param json_query: Callable to transform api response prior to insertion to database.
+        :param json_queries: Callable to transform api response prior to insertion to database.
         You may use pyjsonq flavour query. Should return either iterable or iterator.
-        :type json_query: Callable[[JsonQ | dict], Union[List[List | tuple], Iterator[List]]]
-        :param sql_query: Insertion query in DuckDB sql. Specify how to insert the result of previous json query.
-        :type sql_query: str
+        :type json_queries: Callable[[JsonQ | dict], Union[List[List | tuple], Iterator[List]]]
+        :param sql_queries: Insertion query in DuckDB sql. Specify how to insert the result of previous json query.
+        :type sql_queries: str
 
     :Note:
     After instantiating all desired APIReq object call leech() to start...well...
@@ -42,11 +42,11 @@ class APIReq:
     name: str
     req: Callable
     params: Optional[tuple[List[Optional[set]], Optional[dict]]]
-    json_query: List[Callable[[JsonQ | dict], Union[List[List | tuple], Iterator[List]]]]
-    sql_query: List[str]
+    json_queries: List[Callable[[JsonQ | dict, List], Union[List[List | tuple], Iterator[List]]]]
+    sql_queries: List[str]
 
     def __post_init__(self):
-        assert len(self.json_query) == len(self.sql_query)
+        assert len(self.json_queries) == len(self.sql_queries)
         APIReq._leeches.append(self)
 
     def __str__(self):
@@ -71,7 +71,7 @@ def _task(req: APIReq, q: Queue):
             logging.error("REQUEST Error: %s | %s", str(args_kwargs), str(e))
             continue
         else:
-            q.put((args_kwargs, req.sql_query, req.json_query, resp))
+            q.put((args_kwargs, req.sql_queries, req.json_queries, resp))
             sleep(REQ_DELAY)
 
 
@@ -89,8 +89,8 @@ def leech():
         with lock:
             in_process -= 1
 
-    # JSON Producers
     with concurrent.futures.ThreadPoolExecutor() as exe:
+        # JSON Producers
         futures = {
             exe.submit(_task, obj, q): obj.name
             for obj in reqs
@@ -102,7 +102,7 @@ def leech():
         with DuckDB() as db:
             while in_process > 0 or not q.empty():
                 try:
-                    args_kwargs, sql_query, json_query, resp = q.get()
+                    args_kwargs, sql_queries, json_queries, resp = q.get()
                 except Empty:
                     continue
                 else:
@@ -111,7 +111,7 @@ def leech():
                     # Union[List[List | tuple], Iterator[List]]
                     # So if a single record is returned (tuple),
                     # it has to be enclosed in a list.
-                    for query_pair in zip(json_query, sql_query):
-                        row_gen = query_pair[0](JsonQ(data=resp))
+                    for query_pair in zip(json_queries, sql_queries):
+                        row_gen = query_pair[0](JsonQ(data=resp), args_kwargs)
                         db.executemany(query_pair[1], row_gen)
                     print(f"SUCCESS: {args_kwargs}")

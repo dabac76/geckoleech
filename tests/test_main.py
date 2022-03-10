@@ -1,6 +1,6 @@
 from collections import namedtuple
 from queue import Queue
-from unittest.mock import Mock, MagicMock ,patch, PropertyMock
+from unittest.mock import Mock, MagicMock, patch, PropertyMock
 from pyjsonq import JsonQ
 import duckdb
 import geckoleech.main as main
@@ -47,7 +47,8 @@ def test_leech(all_resp, db, task, ddb_prepare, capsys):
 
     sql = "INSERT INTO main.tst VALUES (?, ?);"
 
-    def json_query(js: JsonQ):
+    def json_query(js: JsonQ, ignore):
+        _ = ignore
         jq = js.at("InsolventX").where("price", ">", 0).get()
         return [(el["name"], el["price"]) for el in jq]
 
@@ -63,6 +64,6 @@ def test_leech(all_resp, db, task, ddb_prepare, capsys):
     con.execute("SELECT * FROM main.tst;")
     actuals = con.fetchall()
     con.close()
-    expected = json_query(JsonQ(data=data1)) + json_query(JsonQ(data=data2))
+    expected = json_query(JsonQ(data=data1), []) + json_query(JsonQ(data=data2), [])
     assert all([actual in expected for actual in actuals])
     assert "SUCCESS: args_kwargs" in captured.out

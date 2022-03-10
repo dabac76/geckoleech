@@ -53,7 +53,8 @@ def db_stat():
         print("-" * 20)
 
 
-# TODO: Dry-Run
+# TODO: Dry-Run - Return of expand() for all APIReq objects
+# TODO: db-erase - Delete either all or given tables
 @cli.command("dry-run")
 def dry_run():
     click.echo("RUN DRY")
