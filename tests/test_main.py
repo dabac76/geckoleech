@@ -36,10 +36,8 @@ def test_leech(all_resp, db, task, ddb_prepare, capsys):
     db.return_value = "test.db"
 
     APIResp = namedtuple("APIResp", "data name")
-
     data1 = {"InsolventX": [{"name": "shitcoin1", "price": 2},
                             {"name": "shitcoin2", "price": 4}]}
-
     data2 = {"InsolventX": [{"name": "shitcoin3", "price": 8},
                             {"name": "shitcoin4", "price": 16}]}
 
@@ -52,7 +50,9 @@ def test_leech(all_resp, db, task, ddb_prepare, capsys):
         jq = js.at("InsolventX").where("price", ">", 0).get()
         return [(el["name"], el["price"]) for el in jq]
 
-    task.side_effect = lambda r, q: q.put(("args_kwargs", [sql], [json_query], r.data))
+    Req = namedtuple("Req", "name json_queries sql_queries")
+    req = Req("simulated req", [json_query], [sql])
+    task.side_effect = lambda rsp, q: q.put(("args_kwargs", req, rsp.data))
 
     main.leech()
 
@@ -66,4 +66,4 @@ def test_leech(all_resp, db, task, ddb_prepare, capsys):
     con.close()
     expected = json_query(JsonQ(data=data1), []) + json_query(JsonQ(data=data2), [])
     assert all([actual in expected for actual in actuals])
-    assert "SUCCESS: args_kwargs" in captured.out
+    assert "SUCCESS: " in captured.out

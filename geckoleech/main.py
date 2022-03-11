@@ -71,7 +71,7 @@ def _task(req: APIReq, q: Queue):
             logging.error("REQUEST Error: %s | %s", str(args_kwargs), str(e))
             continue
         else:
-            q.put((args_kwargs, req.sql_queries, req.json_queries, resp))
+            q.put((args_kwargs, req, resp))
             sleep(REQ_DELAY)
 
 
@@ -100,9 +100,9 @@ def leech():
 
         # Database consumer
         with DuckDB() as db:
-            while in_process > 0 or not q.empty():
+            while in_process > 0:
                 try:
-                    args_kwargs, sql_queries, json_queries, resp = q.get()
+                    args_kwargs, req, resp = q.get()
                 except Empty:
                     continue
                 else:
@@ -111,7 +111,7 @@ def leech():
                     # Union[List[List | tuple], Iterator[List]]
                     # So if a single record is returned (tuple),
                     # it has to be enclosed in a list.
-                    for query_pair in zip(json_queries, sql_queries):
+                    for query_pair in zip(req.json_queries, req.sql_queries):
                         row_gen = query_pair[0](JsonQ(data=resp), args_kwargs)
                         db.executemany(query_pair[1], row_gen)
-                    print(f"SUCCESS: {args_kwargs}")
+                    print(f"SUCCESS: {req.name} -> {args_kwargs}")

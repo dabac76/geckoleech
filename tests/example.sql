@@ -18,5 +18,5 @@ create table if not exists main.social (
     ext_date date,
     id varchar,
     tw_follows integer,
-    reddit_avg_post
+    reddit_avg_post FLOAT
 );

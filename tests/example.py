@@ -1,8 +1,9 @@
+import os
 from datetime import datetime as dt
 from geckoleech.main import APIReq, leech
 from pycoingecko import CoinGeckoAPI
 
-
+os.chdir("..")
 cg = CoinGeckoAPI()
 
 
@@ -54,7 +55,7 @@ def twitter_reddit_socials(response, request):
     query = response.at('community_data').get()
 
     # Even if only one row is returned, DuckDB's executemany() still demands a list not tuple
-    return [datestamp, coin_id, query["twitter_followers"], query["reddit_average_posts_48h"]]
+    return [(datestamp, coin_id, query["twitter_followers"], query["reddit_average_posts_48h"])]
 
 
 # noinspection SqlResolve

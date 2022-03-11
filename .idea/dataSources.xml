@@ -1,14 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
-    <data-source source="LOCAL" name="DuckDB" read-only="true" single-connection="true" uuid="56414a12-011e-4f32-9d45-b72b6a1bb1e9">
-      <driver-ref>java.sql.Driver</driver-ref>
+    <data-source source="LOCAL" name="DuckDB_test" read-only="true" single-connection="true" uuid="56414a12-011e-4f32-9d45-b72b6a1bb1e9">
       <synchronize>true</synchronize>
       <configured-by-url>true</configured-by-url>
       <remarks>0.3.2.</remarks>
       <auto-commit>false</auto-commit>
       <jdbc-driver>org.duckdb.DuckDBDriver</jdbc-driver>
       <jdbc-url>jdbc:duckdb:$PROJECT_DIR$/tests/test.db</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+      <driver-properties>
+        <property name="duckdb.read_only" value="&quot;true&quot;" />
+      </driver-properties>
+    </data-source>
+    <data-source source="LOCAL" name="DuckDB_prod" read-only="true" single-connection="true" uuid="69b13e27-3eb1-4ae5-b155-f60bae9cb500">
+      <synchronize>true</synchronize>
+      <configured-by-url>true</configured-by-url>
+      <remarks>0.3.2.</remarks>
+      <auto-commit>false</auto-commit>
+      <jdbc-driver>org.duckdb.DuckDBDriver</jdbc-driver>
+      <jdbc-url>jdbc:duckdb:$PROJECT_DIR$/geckoleech.db</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
       <driver-properties>
         <property name="duckdb.read_only" value="&quot;true&quot;" />
