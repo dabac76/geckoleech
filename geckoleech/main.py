@@ -1,15 +1,12 @@
-from threading import Lock
-import concurrent.futures
-import random
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 from time import sleep
 from dataclasses import dataclass
 from typing import ClassVar, List, Callable, Iterator, Optional, Union
-from queue import Queue, Empty
 from pyjsonq import JsonQ
 from geckoleech.utils import DuckDB, expand
 
-REQ_DELAY = 1.5
+REQ_TIME_DELAY = 0.5
 LOG_PATH = "geckoleech.log"
 logging.basicConfig(filename=LOG_PATH, filemode="w", level=logging.ERROR)
 
@@ -57,61 +54,53 @@ class APIReq:
         return cls._leeches
 
 
-def _task(req: APIReq, q: Queue):
-    sleep(random.choice([n/2 for n in range(1, 20)]))
-    for args_kwargs in expand(req.params):
-        try:
-            if not args_kwargs:
-                resp = req.req()
-            elif len(args_kwargs) == 1:
-                resp = req.req(*args_kwargs[0])
-            else:
-                resp = req.req(*args_kwargs[0], **args_kwargs[1])
-        except Exception as e:
-            logging.error("REQUEST Error: %s | %s", str(args_kwargs), str(e))
-            continue
+def _task(arg):
+    req, args_kwargs, seconds = arg
+    sleep(seconds)
+    # All exception handling has to be done within request callable.
+    # Including timeouts.
+    resp = None
+    try:
+        if not args_kwargs:
+            resp = req.req()
+        elif len(args_kwargs) == 1:
+            resp = req.req(*args_kwargs[0])
         else:
-            q.put((args_kwargs, req, resp))
-            sleep(REQ_DELAY)
+            resp = req.req(*args_kwargs[0], **args_kwargs[1])
+    except Exception as e:
+        logging.error("REQUEST: %s -> %s | %s", req.name, str(args_kwargs), str(e))
+    finally:
+        return req, args_kwargs, resp
 
 
 # Retrying is responsibility of api call (pycoingecko tries 5x hardcoded)
 # Pagination also (is paid feature in CoinGeckoAPI pro)
 def leech():
-    q = Queue()
-    lock = Lock()
-    reqs = APIReq.all()
-    in_process = len(reqs)
 
-    # noinspection PyUnusedLocal
-    def cnt_progress(future):
-        nonlocal lock, in_process
-        with lock:
-            in_process -= 1
+    tasks = []
+    seconds = 0
+    for req in APIReq.all():
+        for args_kwargs in expand(req.params):
+            tasks.append((req, args_kwargs, seconds))
+            seconds += REQ_TIME_DELAY
 
-    with concurrent.futures.ThreadPoolExecutor() as exe:
-        # JSON Producers
-        futures = {
-            exe.submit(_task, obj, q): obj.name
-            for obj in reqs
-        }
-        for fut in futures.keys():
-            fut.add_done_callback(cnt_progress)
+    with ThreadPoolExecutor(32) as exe:
+        # JSON Producing threads.
+        futures = [exe.submit(_task, arg) for arg in tasks]
 
-        # Database consumer
+        # Database consumer. DuckDB access has to be in single thread only.
         with DuckDB() as db:
-            while in_process > 0:
-                try:
-                    args_kwargs, req, resp = q.get()
-                except Empty:
+            for future in as_completed(futures):
+                # DuckDb.con.executemany function demands
+                # JSON query to return either iterable or iterator:
+                # Union[List[List | tuple], Iterator[List]]
+                # So if a single record is returned (tuple),
+                # it has to be enclosed in a list.
+                result = future.result()
+                if not result[2]:
                     continue
-                else:
-                    # DuckDb.con.executemany function demands
-                    # JSON query to return either iterable or iterator:
-                    # Union[List[List | tuple], Iterator[List]]
-                    # So if a single record is returned (tuple),
-                    # it has to be enclosed in a list.
-                    for query_pair in zip(req.json_queries, req.sql_queries):
-                        row_gen = query_pair[0](JsonQ(data=resp), args_kwargs)
-                        db.executemany(query_pair[1], row_gen)
-                    print(f"SUCCESS: {req.name} -> {args_kwargs}")
+                req, args_kwargs, resp = result
+                for query_pair in zip(req.json_queries, req.sql_queries):
+                    row_gen = query_pair[0](JsonQ(data=resp), args_kwargs)
+                    db.executemany(query_pair[1], row_gen)
+                print(f"SUCCESS: {req.name} -> {args_kwargs}")
