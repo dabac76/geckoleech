@@ -55,6 +55,7 @@ class APIReq:
 
 
 def _task(arg):
+
     req, args_kwargs, seconds = arg
     sleep(seconds)
     # All exception handling has to be done within request callable.
@@ -97,9 +98,10 @@ def leech():
                 # So if a single record is returned (tuple),
                 # it has to be enclosed in a list.
                 result = future.result()
-                if not result[2]:
-                    continue
                 req, args_kwargs, resp = result
+                if not resp:
+                    print(f"NO_RESPONSE_DETAILS_LOGGED: {req.name} -> {args_kwargs}")
+                    continue
                 for query_pair in zip(req.json_queries, req.sql_queries):
                     row_gen = query_pair[0](JsonQ(data=resp), args_kwargs)
                     db.executemany(query_pair[1], row_gen)

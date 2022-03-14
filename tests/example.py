@@ -3,6 +3,7 @@ from datetime import datetime as dt
 from geckoleech.main import APIReq, leech
 from pycoingecko import CoinGeckoAPI
 
+# FIRST RUN IN TERMINAL: gecko db-ddl -f ./tests/example.sql
 os.chdir("..")
 cg = CoinGeckoAPI()
 
@@ -26,7 +27,7 @@ def good_rank_newest_exchanges(response, request):
 def aed_cny_rub_march_gecko_price(response, request):
 
     # CoinGecko's response unfortunately doesn't have a date requested.
-    # So we have to take it from a request's arguments.
+    # Fortunately, geckoleech allows you to access all request args/kwargs as well.
     datestamp = dt.strptime(request[0][1], "%d-%m-%Y").strftime('%Y-%m-%d')
 
     response.reset()

@@ -1,5 +1,5 @@
 import json
-from unittest.mock import patch, PropertyMock
+from unittest.mock import patch, PropertyMock, Mock
 
 import duckdb
 import numpy as np
@@ -50,7 +50,7 @@ gcr2 = APIReq(
 )
 
 # noinspection SqlResolve
-gcr4 = APIReq(
+gcr3 = APIReq(
     "GCR4: Return data, with calling arguments and generator json-query",
     fixed_req_args,
     ([{"USD", "EUR"}, {4, 8}], {}),
@@ -63,12 +63,10 @@ gcr4 = APIReq(
 @patch.object(DuckDB, "DB_PATH", new_callable=PropertyMock)
 @patch("geckoleech.main.logging")
 @patch("geckoleech.main.sleep")
-def test_integrated(sl, lg, db, ddb_prepare, capsys):
+def test_integrated(sl: Mock, lg: Mock, db: Mock, ddb_prepare, capsys):
 
     db.return_value = "test.db"
     sl.side_effect = None
-    mock_log = []
-    lg.error.side_effect = lambda msg1, msg2, msg3: mock_log.append(msg1+msg2+msg3)
 
     leech()
 
@@ -86,7 +84,7 @@ def test_integrated(sl, lg, db, ddb_prepare, capsys):
     expected_gcr1 = expected_gcr1["f1"]
     # With absolute tol <1e-05 round-off diff between db and python appear
     assert_allclose(actual, expected_gcr1, atol=.0001)
-    assert "SUCCESS:" in captured.out
+    assert f"SUCCESS: {gcr1.name} ->" in captured.out
 
     con.execute("SELECT * FROM main.tst_soc;")
     actual = [el for el in con.fetchall()[0]]
@@ -94,8 +92,8 @@ def test_integrated(sl, lg, db, ddb_prepare, capsys):
     assert expected == pytest.approx(actual)
 
     # GCR2 testcase assertions
-    lg.error.assert_called_once()
-    assert any(["BadRequest" in line for line in mock_log])
+    lg.error.assert_called_once_with("REQUEST: %s -> %s | %s", gcr2.name, str(None), "BadRequest")
+    assert f"NO_RESPONSE_DETAILS_LOGGED: {gcr2.name} ->" in captured.out
 
     # GCR4 testcase assertions
     con.execute("SELECT curr, CAST(SUM(price) AS DOUBLE) "
@@ -103,6 +101,7 @@ def test_integrated(sl, lg, db, ddb_prepare, capsys):
     actual = con.fetchall()
     expected = [("USD", 12.0), ("USDT", 24.0), ("EUR", 12.0), ("EURT", 24.0)]
     assert all([el in expected for el in actual])
+    assert f"SUCCESS: {gcr3.name} ->" in captured.out
 
     # For the case when running all the tests
     APIReq._leeches = []
