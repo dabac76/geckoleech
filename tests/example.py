@@ -1,7 +1,7 @@
 import os
 from datetime import datetime as dt
-from geckoleech.main import APIReq, leech
 from pycoingecko import CoinGeckoAPI
+from geckoleech.main import APIReq, leech
 
 # FIRST RUN IN TERMINAL: gecko db-ddl -f ./tests/example.sql
 os.chdir("..")
@@ -78,5 +78,5 @@ cg_market = APIReq(
     ["insert into main.market_history values (?, ?, ?, ?, ?, ?)", "insert into main.social values (?, ?, ?, ?)"]
 )
 
-
-leech()
+if __name__ == "__main__":
+    leech()
