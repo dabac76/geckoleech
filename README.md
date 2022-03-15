@@ -4,11 +4,12 @@
 
 ---
 
-Inspired by a simple use case of gathering data from CoinGecko, although it can be used with any kind of json rest api. GeckoLeech, however, is not directly accessing rest service. User is expected to provide a callable that handles the request and returns a json response. 
+Inspired by a simple use case of gathering data from CoinGecko, although it can be used with any kind of json rest api. GeckoLeech, however, is not directly accessing rest service. User is expected to provide a callable that handles the request and returns a dict response. 
 
 Purpose is strictly prototyping not production. It removes the burden of handling looping and database access, nothing more nothing less. Authenticated requests and response pagination are expected to be handled by provided callable. The code doesn't even have requests/urllib as a dependency. As said, it expects a callable that handles whole logic of a rest api request. Each request is executed in its own thread (up to 32 in pool). Project dependencies: DuckDB, pyjsonq, click. User should provide in advance: 
 
 - database model, 
+- request callable
 - hint to all combinations of api request parameters and 
 - json query (in `pyjsonq` flavour), how to transform the response prior to database insertion.
 
@@ -56,7 +57,7 @@ Example for `req` and `params` attributes: for a given callable `req: get_data` 
 ([{"date1", "date2"}, {1, 2}, 3], {"key1": "val1", "key2": {5, 6}})
 ```
 
-Callable will be called the following number of times and with the following argument combinations:
+Callable will be called with:
 
 ```python
 get_data("date1", 1, 3, key1="val1", key2=5)
@@ -84,8 +85,6 @@ Inside virtualenv shell you have a command line interface (`gecko --help`) expos
 ### Example
 
 ---
-
-To further explain the `params` attribute of `APIReq`, let's take an example (you can find it in /tests).
 
 You would like to consume the following data from CoinGecko's service: 
 * Get the list of all exchanges, opened in 2019 and 2020 with trust score > 80. 
@@ -123,6 +122,8 @@ create table if not exists main.social (
 ```
 
 Create the database with the help of the exposed command line interface: `gecko db-ddl -f ./tests/example.sql`. 
+
+##### Json Queries and the Rest of Script
 
 Next step is to find how to properly transform the api response. This will require some effort in python console to come up with the correct [pyjsonq](https://github.com/s1s1ty/py-jsonq) expression. In this case, here are the 3 callables to transform the json responses in accordance to the data model:
 
