@@ -29,6 +29,28 @@ def db_ddl(file, stmt):
         ddb.execute(sql)
 
 
+@cli.command("db-remove")
+@click.option("-n", "--names", help="Delete all rows from tables with given names (quoted, space delimited). "
+                                    "If no names given, delete from all tables in database.")
+def db_remove(names: str):
+    with DuckDB() as ddb:
+        ddb.execute("PRAGMA show_tables;")
+        tables = ddb.fetchall()
+        if not names:
+            for table in tables:
+                ddb.execute("delete from " + table[0])
+        else:
+            db_names = [table[0] for table in tables]
+            cli_names = names.split()
+            if not all(cli_name in db_names for cli_name in cli_names):
+                for cli_name in cli_names:
+                    if not(cli_name in db_names):
+                        click.echo(f"ERROR: Unknown table name: {cli_name}")
+                return
+            for cli_name in cli_names:
+                ddb.execute("delete from " + cli_name)
+
+
 @cli.command("db-stat")
 def db_stat():
     with DuckDB(read_only=True) as ddb:
@@ -72,25 +94,3 @@ def dry_run(file):
                 args_kwargs = "()"
             click.echo(args_kwargs)
     click.echo("-" * 60)
-
-
-@cli.command("db-remove")
-@click.option("-n", "--names", help="Delete all rows from tables with given names (quoted, space delimited). "
-                                    "If no names given, delete from all tables in database.")
-def db_remove(names: str):
-    with DuckDB() as ddb:
-        ddb.execute("PRAGMA show_tables;")
-        tables = ddb.fetchall()
-        if not names:
-            for table in tables:
-                ddb.execute("delete from " + table[0])
-        else:
-            db_names = [table[0] for table in tables]
-            cli_names = names.split()
-            if not all(cli_name in db_names for cli_name in cli_names):
-                for cli_name in cli_names:
-                    if not(cli_name in db_names):
-                        click.echo(f"ERROR: Unknown table name: {cli_name}")
-                return
-            for cli_name in cli_names:
-                ddb.execute("delete from " + cli_name)

@@ -1,3 +1,4 @@
+--
 create table if not exists main.exchange (
     id varchar,
     url varchar,

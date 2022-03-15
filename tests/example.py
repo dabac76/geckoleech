@@ -42,7 +42,7 @@ def aed_cny_rub_march_gecko_price(response, request):
 
     return \
         [(datestamp, coin_id, curr, query_price[curr], query_mcap[curr], query_vol[curr])
-         for curr in ["aed", "cny", "rub"]]
+         for curr in ["aed", "cny", "rub", "sar", "inr"]]
 
 
 def twitter_reddit_socials(response, request):
