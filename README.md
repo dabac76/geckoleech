@@ -208,4 +208,9 @@ Notice in `cg_market` how you can use one response multiple times. Just be aware
 
 If you want to make sure how the requests (`get_exchange_list` and `get_coin_history_by_id`) are called use the exposed command: `gecko dry-run -f ./tests/example.py`.
 
+Now the only thing left for you to have the result in pandas is:
 
+```python
+con = duckdb.connect(database='geckoleech.db', read_only=True)
+df = con.execute("SELECT * FROM <table_name>").fetchdf()
+```
